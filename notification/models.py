@@ -8,6 +8,7 @@ except ImportError:
 from django.db import models
 from django.db.models.query import QuerySet
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
 from django.core.mail import EmailMultiAlternatives
 from django.template import Context
@@ -79,6 +80,27 @@ class NoticeSetting(models.Model):
         verbose_name_plural = _("notice settings")
         unique_together = ("user", "notice_type", "medium")
 
+
+def create_notice_settings_for_user(sender, instance, created, **kwargs):
+    if created:
+        for notice_type in NoticeType.objects.all():
+            for medium_id, medium_display in NOTICE_MEDIA:
+                NoticeSetting.objects.create(
+                    user=instance,
+                    notice_type=notice_type,
+                    medium=medium_id,
+                    send = (NOTICE_MEDIA_DEFAULTS.get(str(medium_id), 0) <= notice_type.default)
+                )
+
+models.signals.post_save.connect(create_notice_settings_for_user, sender=User)
+
+def create_notice_settings_for_notice_type(sender, instance, created, **kwargs):
+    if created:
+        for user in User.objects.all():
+            for medium_id, medium_display in NOTICE_MEDIA:
+                return NoticeSetting.objects.create(user=user, notice_type=instance, medium=medium_id)
+models.signals.post_save.connect(create_notice_settings_for_notice_type, sender=NoticeType)
+
 def get_notification_setting(user, notice_type, medium):
     try:
         return NoticeSetting.objects.get(user=user, notice_type=notice_type, medium=medium)
@@ -91,9 +113,7 @@ def get_notification_setting(user, notice_type, medium):
 def should_send(user, notice_type, medium):
     return get_notification_setting(user, notice_type, medium).send
 
-
 class NoticeManager(models.Manager):
-
     def notices_for(self, user, archived=False, unseen=None, on_site=None):
         """
         returns Notice objects for the given user.
@@ -300,7 +320,7 @@ def send_now(users, label, extra_context=None, on_site=True):
         }, context)
         body_html = render_to_string('notification/email_body.html', {
             'message': messages['full.html'],
-        }, context) 
+        }, context)
 
         notice = Notice.objects.create(user=user, message=messages['notice.html'],
             notice_type=notice_type, on_site=on_site)

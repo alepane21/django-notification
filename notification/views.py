@@ -5,9 +5,10 @@ from django.template import RequestContext
 from django.contrib.auth.decorators import login_required
 from django.contrib.syndication.views import feed
 
-from notification.models import *
-from notification.decorators import basic_auth_required, simple_basic_auth_callback
-from notification.feeds import NoticeUserFeed
+from .models import *
+from .decorators import basic_auth_required, simple_basic_auth_callback
+from .forms import NoticeSettingFormSet
+from .feeds import NoticeUserFeed
 
 @basic_auth_required(realm='Notices Feed', callback_func=simple_basic_auth_callback)
 def feed_for_user(request):
@@ -16,34 +17,18 @@ def feed_for_user(request):
         "feed": NoticeUserFeed,
     })
 
+from core.forms import UniFormNoticeSettingFormSet
+#def notices(request, formset_class=NoticeSettingFormSet):
 @login_required
-def notices(request):
-    notice_types = NoticeType.objects.all()
-    notices = Notice.objects.notices_for(request.user, on_site=True)
-    settings_table = []
-    for notice_type in NoticeType.objects.all():
-        settings_row = []
-        for medium_id, medium_display in NOTICE_MEDIA:
-            form_label = "%s_%s" % (notice_type.label, medium_id)
-            setting = get_notification_setting(request.user, notice_type, medium_id)
-            if request.method == "POST":
-                if request.POST.get(form_label) == "on":
-                    setting.send = True
-                else:
-                    setting.send = False
-                setting.save()
-            settings_row.append((form_label, setting.send))
-        settings_table.append({"notice_type": notice_type, "cells": settings_row})
-    
-    notice_settings = {
-        "column_headers": [medium_display for medium_id, medium_display in NOTICE_MEDIA],
-        "rows": settings_table,
-    }
-    
+def notices(request, formset_class=UniFormNoticeSettingFormSet):
+    formset = formset_class(user=request.user, data=request.POST or None)
+
+    if request.method == "POST":
+        if formset.is_valid():
+            formset.save()
+
     return render_to_response("notification/notices.html", {
-        "notices": notices,
-        "notice_types": notice_types,
-        "notice_settings": notice_settings,
+        "formset": formset,
     }, context_instance=RequestContext(request))
 
 @login_required

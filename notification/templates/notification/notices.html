@@ -1,0 +1,20 @@
+{% extends "notification/base.html" %}
+{% load uni_form_tags %}
+{% block body %}
+<form method="post" action="">
+    {{ formset.management_form }}
+    <table>
+    <tbody>
+        {% for form in formset.forms %}
+        <tr>
+        <th>{{ form.notice_type_instance.description }}</th>
+        <td>
+            {{ form|as_uni_form }}
+        </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+    </table>
+    <input type="submit" name="save" value="save"/>
+</form>
+{% endblock %}
