@@ -1,13 +1,15 @@
 from django.core.urlresolvers import reverse
 from django.shortcuts import render_to_response, get_object_or_404
 from django.http import HttpResponseRedirect, Http404
+from django.forms.formsets import formset_factory
 from django.template import RequestContext
 from django.contrib.auth.decorators import login_required
 from django.contrib.syndication.views import feed
+import django.forms
 
-from .models import *
+import models
 from .decorators import basic_auth_required, simple_basic_auth_callback
-from .forms import NoticeSettingFormSet
+from .forms import NoticeSettingForm
 from .feeds import NoticeUserFeed
 
 @basic_auth_required(realm='Notices Feed', callback_func=simple_basic_auth_callback)
@@ -17,15 +19,36 @@ def feed_for_user(request):
         "feed": NoticeUserFeed,
     })
 
-from core.forms import UniFormNoticeSettingFormSet
-#def notices(request, formset_class=NoticeSettingFormSet):
 @login_required
-def notices(request, formset_class=UniFormNoticeSettingFormSet):
-    formset = formset_class(user=request.user, data=request.POST or None)
+def notices(request, formset_class=None):
+    initial = []
+    for notice_type in models.NoticeType.objects.all():
+        type_setting_initial = {}
+        for medium, media_label in models.NOTICE_MEDIA:
+            type_setting_initial[medium] = models.NoticeSetting.objects.get(user=request.user,
+                    notice_type=notice_type, medium=medium).send
+        type_setting_initial['notice_type'] = notice_type
+        initial.append(type_setting_initial)
+
+    if not formset_class:
+        fields = dict([(media_id, django.forms.BooleanField(label=media_label)) \
+                        for media_id,media_label in models.NOTICE_MEDIA])
+        form_class = type('NoticeForm', (django.forms.BaseForm,), {'base_fields': fields })
+        formset_class = formset_factory(extra=0, form=NoticeSettingForm,
+            can_order=False, can_delete=False, max_num=len(initial))
+    formset = formset_class(data=request.POST or None, initial=initial)
 
     if request.method == "POST":
         if formset.is_valid():
-            formset.save()
+            for form in formset.forms:
+                cleaned_data = form.cleaned_data.copy()
+                notice_type = cleaned_data.pop('notice_type')
+                for m, send in cleaned_data.items():
+                    ns = models.NoticeSetting.objects.get(user=request.user,
+                            notice_type=notice_type, medium=m)
+                    if ns.send != send:
+                        ns.send = send
+                        ns.save()
 
     return render_to_response("notification/notices.html", {
         "formset": formset,
@@ -33,7 +56,7 @@ def notices(request, formset_class=UniFormNoticeSettingFormSet):
 
 @login_required
 def single(request, id):
-    notice = get_object_or_404(Notice, id=id)
+    notice = get_object_or_404(models.Notice, id=id)
     if request.user == notice.user:
         return render_to_response("notification/single.html", {
             "notice": notice,
@@ -44,13 +67,13 @@ def single(request, id):
 def archive(request, noticeid=None, next_page=None):
     if noticeid:
         try:
-            notice = Notice.objects.get(id=noticeid)
+            notice = models.Notice.objects.get(id=noticeid)
             if request.user == notice.user or request.user.is_superuser:
                 notice.archive()
             else:   # you can archive other users' notices
                     # only if you are superuser.
                 return HttpResponseRedirect(next_page)
-        except Notice.DoesNotExist:
+        except models.Notice.DoesNotExist:
             return HttpResponseRedirect(next_page)
     return HttpResponseRedirect(next_page)
 
@@ -58,19 +81,19 @@ def archive(request, noticeid=None, next_page=None):
 def delete(request, noticeid=None, next_page=None):
     if noticeid:
         try:
-            notice = Notice.objects.get(id=noticeid)
+            notice = models.Notice.objects.get(id=noticeid)
             if request.user == notice.user or request.user.is_superuser:
                 notice.delete()
             else:   # you can delete other users' notices
                     # only if you are superuser.
                 return HttpResponseRedirect(next_page)
-        except Notice.DoesNotExist:
+        except models.Notice.DoesNotExist:
             return HttpResponseRedirect(next_page)
     return HttpResponseRedirect(next_page)
 
 @login_required
 def mark_all_seen(request):
-    for notice in Notice.objects.notices_for(request.user, unseen=True):
+    for notice in models.Notice.objects.notices_for(request.user, unseen=True):
         notice.unseen = False
         notice.save()
     return HttpResponseRedirect(reverse("notification_notices"))
