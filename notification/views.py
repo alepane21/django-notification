@@ -9,7 +9,6 @@ import django.forms
 
 import models
 from .decorators import basic_auth_required, simple_basic_auth_callback
-from .forms import NoticeSettingForm
 from .feeds import NoticeUserFeed
 
 @basic_auth_required(realm='Notices Feed', callback_func=simple_basic_auth_callback)
@@ -31,10 +30,12 @@ def notices(request, formset_class=None):
         initial.append(type_setting_initial)
 
     if not formset_class:
-        fields = dict([(media_id, django.forms.BooleanField(label=media_label)) \
+        fields = dict([(media_id, django.forms.BooleanField(label=media_label, required=False)) \
                         for media_id,media_label in models.NOTICE_MEDIA])
+        fields['notice_type'] = django.forms.ModelChoiceField(
+                    queryset=models.NoticeType.objects.all(), widget=django.forms.HiddenInput)
         form_class = type('NoticeForm', (django.forms.BaseForm,), {'base_fields': fields })
-        formset_class = formset_factory(extra=0, form=NoticeSettingForm,
+        formset_class = formset_factory(extra=0, form=form_class,
             can_order=False, can_delete=False, max_num=len(initial))
     formset = formset_class(data=request.POST or None, initial=initial)
 
