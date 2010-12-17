@@ -24,8 +24,11 @@ def notices(request):
     for notice_type in models.NoticeType.objects.all():
         type_setting_initial = {}
         for medium, medium_label in models.NOTICE_MEDIA:
-            type_setting_initial[medium] = models.NoticeSetting.objects.get(user=request.user,
-                    notice_type=notice_type, medium=medium).send
+            try:
+                type_setting_initial[medium] = models.NoticeSetting.objects.get(user=request.user,
+                        notice_type=notice_type, medium=medium).send
+            except models.NoticeSetting.DoesNotExist:
+                type_setting_initial[medium] = False
         type_setting_initial['notice_type'] = notice_type
         initial.append(type_setting_initial)
 
