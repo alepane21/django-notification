@@ -19,24 +19,23 @@ def feed_for_user(request):
     })
 
 @login_required
-def notices(request, formset_class=None):
+def notices(request):
     initial = []
     for notice_type in models.NoticeType.objects.all():
         type_setting_initial = {}
-        for medium, media_label in models.NOTICE_MEDIA:
+        for medium, medium_label in models.NOTICE_MEDIA:
             type_setting_initial[medium] = models.NoticeSetting.objects.get(user=request.user,
                     notice_type=notice_type, medium=medium).send
         type_setting_initial['notice_type'] = notice_type
         initial.append(type_setting_initial)
 
-    if not formset_class:
-        fields = dict([(media_id, django.forms.BooleanField(label=media_label, required=False)) \
-                        for media_id,media_label in models.NOTICE_MEDIA])
-        fields['notice_type'] = django.forms.ModelChoiceField(
-                    queryset=models.NoticeType.objects.all(), widget=django.forms.HiddenInput)
-        form_class = type('NoticeForm', (django.forms.BaseForm,), {'base_fields': fields })
-        formset_class = formset_factory(extra=0, form=form_class,
-            can_order=False, can_delete=False, max_num=len(initial))
+    form_fields = dict([(medium_id, django.forms.BooleanField(label=medium_label, required=False)) \
+                    for medium_id,medium_label in models.NOTICE_MEDIA])
+    form_fields['notice_type'] = django.forms.ModelChoiceField(
+                queryset=models.NoticeType.objects.all(), widget=django.forms.HiddenInput)
+    form_class = type('NoticeForm', (django.forms.BaseForm,), {'base_fields': form_fields })
+    formset_class = formset_factory(extra=0, form=form_class,
+        can_order=False, can_delete=False, max_num=len(initial))
     formset = formset_class(data=request.POST or None, initial=initial)
 
     if request.method == "POST":
@@ -44,9 +43,11 @@ def notices(request, formset_class=None):
             for form in formset.forms:
                 cleaned_data = form.cleaned_data.copy()
                 notice_type = cleaned_data.pop('notice_type')
-                for m, send in cleaned_data.items():
-                    ns = models.NoticeSetting.objects.get(user=request.user,
-                            notice_type=notice_type, medium=m)
+                for medium_id, medium_label in models.NOTICE_MEDIA:
+                    send = cleaned_data.get(medium_id, False)
+                    ns, created = models.NoticeSetting.objects.get_or_create(user=request.user,
+                            notice_type=notice_type, medium=medium_id,
+                            defaults={'send': send})
                     if ns.send != send:
                         ns.send = send
                         ns.save()
