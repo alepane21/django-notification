@@ -4,7 +4,7 @@ from django.http import HttpResponseRedirect, Http404
 from django.forms.formsets import formset_factory
 from django.template import RequestContext
 from django.contrib.auth.decorators import login_required
-from django.contrib.syndication.views import feed
+from django.contrib.syndication.views import Feed
 import django.forms
 
 import models
@@ -14,7 +14,7 @@ from .feeds import NoticeUserFeed
 @basic_auth_required(realm='Notices Feed', callback_func=simple_basic_auth_callback)
 def feed_for_user(request):
     url = "feed/%s" % request.user.username
-    return feed(request, url, {
+    return Feed(request, url, {
         "feed": NoticeUserFeed,
     })
 
