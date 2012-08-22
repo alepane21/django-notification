@@ -98,7 +98,7 @@ def create_notice_settings_for_notice_type(sender, instance, created, **kwargs):
     if created:
         for user in User.objects.all():
             for medium_id, medium_display in NOTICE_MEDIA:
-                return NoticeSetting.objects.create(user=user, notice_type=instance, medium=medium_id)
+                NoticeSetting.objects.create(user=user, notice_type=instance, medium=medium_id)
 models.signals.post_save.connect(create_notice_settings_for_notice_type, sender=NoticeType)
 
 def get_notification_setting(user, notice_type, medium):
@@ -261,13 +261,13 @@ def send_now(users, label, extra_context=None, on_site=True):
         'spam': 'eggs',
         'foo': 'bar',
     )
-    
+
     You can pass in on_site=False to prevent the notice emitted from being
     displayed on the site.
     """
     if extra_context is None:
         extra_context = {}
-    
+
     notice_type = NoticeType.objects.get(label=label)
 
     current_site = Site.objects.get_current()
@@ -352,7 +352,7 @@ def send(*args, **kwargs):
             return queue(*args, **kwargs)
         else:
             return send_now(*args, **kwargs)
-        
+
 def queue(users, label, extra_context=None, on_site=True):
     """
     Queue the notification in NoticeQueueBatch. This allows for large amounts
