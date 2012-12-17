@@ -89,7 +89,7 @@ def create_notice_settings_for_user(sender, instance, created, **kwargs):
                     user=instance,
                     notice_type=notice_type,
                     medium=medium_id,
-                    send = (NOTICE_MEDIA_DEFAULTS.get(str(medium_id), 0) <= notice_type.default)
+                    send=(NOTICE_MEDIA_DEFAULTS.get(str(medium_id), 0) <= notice_type.default)
                 )
 
 models.signals.post_save.connect(create_notice_settings_for_user, sender=User)
@@ -98,7 +98,12 @@ def create_notice_settings_for_notice_type(sender, instance, created, **kwargs):
     if created:
         for user in User.objects.all():
             for medium_id, medium_display in NOTICE_MEDIA:
-                NoticeSetting.objects.create(user=user, notice_type=instance, medium=medium_id)
+                NoticeSetting.objects.create(
+                    user=user,
+                    notice_type=instance,
+                    medium=medium_id,
+                    send=(NOTICE_MEDIA_DEFAULTS.get(str(medium_id), 0) <= instance.default)
+                )
 models.signals.post_save.connect(create_notice_settings_for_notice_type, sender=NoticeType)
 
 def get_notification_setting(user, notice_type, medium):
