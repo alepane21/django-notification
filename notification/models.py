@@ -8,16 +8,19 @@ except ImportError:
 from django.db import models
 from django.db.models.query import QuerySet
 from django.conf import settings
-from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
 from django.core.mail import EmailMultiAlternatives
 from django.template import Context
 from django.template.loader import render_to_string
+try:
+    from django.contrib.auth import get_user_model
+    user_model = get_user_model()
+except ImportError:
+    from django.contrib.auth.models import User as user_model
 
 from django.core.exceptions import ImproperlyConfigured
 
 from django.contrib.sites.models import Site
-from django.contrib.auth.models import User
 from django.contrib.auth.models import AnonymousUser
 
 from django.contrib.contenttypes.models import ContentType
@@ -70,7 +73,7 @@ class NoticeSetting(models.Model):
     of a given type to a given medium.
     """
 
-    user = models.ForeignKey(User, verbose_name=_('user'))
+    user = models.ForeignKey(user_model, verbose_name=_('user'))
     notice_type = models.ForeignKey(NoticeType, verbose_name=_('notice type'))
     medium = models.CharField(_('medium'), max_length=1, choices=NOTICE_MEDIA)
     send = models.BooleanField(_('send'))
@@ -92,11 +95,11 @@ def create_notice_settings_for_user(sender, instance, created, **kwargs):
                     send=(NOTICE_MEDIA_DEFAULTS.get(str(medium_id), 0) <= notice_type.default)
                 )
 
-models.signals.post_save.connect(create_notice_settings_for_user, sender=User)
+models.signals.post_save.connect(create_notice_settings_for_user, sender=user_model)
 
 def create_notice_settings_for_notice_type(sender, instance, created, **kwargs):
     if created:
-        for user in User.objects.all():
+        for user in user_model.objects.all():
             for medium_id, medium_display in NOTICE_MEDIA:
                 NoticeSetting.objects.create(
                     user=user,
@@ -149,7 +152,7 @@ class NoticeManager(models.Manager):
 
 class Notice(models.Model):
 
-    user = models.ForeignKey(User, verbose_name=_('user'))
+    user = models.ForeignKey(user_model, verbose_name=_('user'))
     message = models.TextField(_('message'))
     notice_type = models.ForeignKey(NoticeType, verbose_name=_('notice type'))
     added = models.DateTimeField(_('added'), default=datetime.datetime.now)
@@ -394,7 +397,7 @@ class ObservedItemManager(models.Manager):
 
 class ObservedItem(models.Model):
 
-    user = models.ForeignKey(User, verbose_name=_('user'))
+    user = models.ForeignKey(user_model, verbose_name=_('user'))
 
     content_type = models.ForeignKey(ContentType)
     object_id = models.PositiveIntegerField()
