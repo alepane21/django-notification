@@ -29,6 +29,8 @@ from django.contrib.contenttypes import generic
 from django.utils.translation import ugettext_lazy as _
 from django.utils.translation import ugettext, get_language, activate
 
+AUTH_USER_MODEL = getattr(settings, 'AUTH_USER_MODEL', 'auth.User')
+
 # favour django-mailer but fall back to django.core.mail
 if 'mailer' in settings.INSTALLED_APPS:
     from mailer import send_mail
@@ -85,29 +87,10 @@ class NoticeSetting(models.Model):
 
 
 def create_notice_settings_for_user(sender, instance, created, **kwargs):
-    if created:
-        for notice_type in NoticeType.objects.all():
-            for medium_id, medium_display in NOTICE_MEDIA:
-                NoticeSetting.objects.create(
-                    user=instance,
-                    notice_type=notice_type,
-                    medium=medium_id,
-                    send=(NOTICE_MEDIA_DEFAULTS.get(str(medium_id), 0) <= notice_type.default)
-                )
-
-models.signals.post_save.connect(create_notice_settings_for_user, sender=user_model)
+    return False
 
 def create_notice_settings_for_notice_type(sender, instance, created, **kwargs):
-    if created:
-        for user in user_model.objects.all():
-            for medium_id, medium_display in NOTICE_MEDIA:
-                NoticeSetting.objects.create(
-                    user=user,
-                    notice_type=instance,
-                    medium=medium_id,
-                    send=(NOTICE_MEDIA_DEFAULTS.get(str(medium_id), 0) <= instance.default)
-                )
-models.signals.post_save.connect(create_notice_settings_for_notice_type, sender=NoticeType)
+    return False
 
 def get_notification_setting(user, notice_type, medium):
     try:
@@ -152,7 +135,7 @@ class NoticeManager(models.Manager):
 
 class Notice(models.Model):
 
-    user = models.ForeignKey(user_model, verbose_name=_('user'))
+    user = models.ForeignKey(AUTH_USER_MODEL, verbose_name=_('user'))
     message = models.TextField(_('message'))
     notice_type = models.ForeignKey(NoticeType, verbose_name=_('notice type'))
     added = models.DateTimeField(_('added'), default=datetime.datetime.now)
@@ -397,7 +380,7 @@ class ObservedItemManager(models.Manager):
 
 class ObservedItem(models.Model):
 
-    user = models.ForeignKey(user_model, verbose_name=_('user'))
+    user = models.ForeignKey(AUTH_USER_MODEL, verbose_name=_('user'))
 
     content_type = models.ForeignKey(ContentType)
     object_id = models.PositiveIntegerField()
