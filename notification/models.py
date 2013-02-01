@@ -12,11 +12,6 @@ from django.core.urlresolvers import reverse
 from django.core.mail import EmailMultiAlternatives
 from django.template import Context
 from django.template.loader import render_to_string
-try:
-    from django.contrib.auth import get_user_model
-    user_model = get_user_model()
-except ImportError:
-    from django.contrib.auth.models import User as user_model
 
 from django.core.exceptions import ImproperlyConfigured
 
