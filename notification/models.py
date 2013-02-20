@@ -251,6 +251,9 @@ def send_now(users, label, extra_context=None, on_site=True):
     You can pass in on_site=False to prevent the notice emitted from being
     displayed on the site.
     """
+    from django.contrib.auth import get_user_model
+    user_model = get_user_model()
+
     if extra_context is None:
         extra_context = {}
 
@@ -308,13 +311,17 @@ def send_now(users, label, extra_context=None, on_site=True):
             'message': messages['full.html'],
         }, context)
 
-        notice = Notice.objects.create(user=user, message=messages['notice.html'],
-            notice_type=notice_type, on_site=on_site)
-        if should_send(user, notice_type, "1") and user.email: # Email
-            recipients.append(user.email)
-        msg = EmailMultiAlternatives(subject, body, settings.DEFAULT_FROM_EMAIL, recipients)
-        msg.attach_alternative(body_html, 'text/html')
-        msg.send()
+        if user is user_model:
+            notice = Notice.objects.create(user=user, message=messages['notice.html'],
+                notice_type=notice_type, on_site=on_site)
+            if should_send(user, notice_type, "1") and user.email:
+                recipients.append(user.email)
+        else:
+            recipients.append(user)
+        if recipients:
+            msg = EmailMultiAlternatives(subject, body, settings.DEFAULT_FROM_EMAIL, recipients)
+            msg.attach_alternative(body_html, 'text/html')
+            msg.send()
 
     # reset environment to original language
     activate(current_language)
@@ -345,12 +352,21 @@ def queue(users, label, extra_context=None, on_site=True):
     of user notifications to be deferred to a seperate process running outside
     the webserver.
     """
+    from django.contrib.auth import get_user_model
+    user_model = get_user_model()
     if extra_context is None:
         extra_context = {}
     if isinstance(users, QuerySet):
         users = [row["pk"] for row in users.values("pk")]
+        users = ['id' + row['pk'] for row in users.values('pk')]
     else:
         users = [user.pk for user in users]
+        users = []
+        for user in users:
+            if user.__class__ == user_model:
+                users.append('id' + user.pk)
+            else:
+                users.append('email' + user)
     notices = []
     for user in users:
         notices.append((user, label, extra_context, on_site))

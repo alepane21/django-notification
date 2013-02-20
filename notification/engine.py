@@ -47,6 +47,10 @@ def send_all():
                 notices = pickle.loads(str(queued_batch.pickled_data).decode("base64"))
                 for user, label, extra_context, on_site in notices:
                     user = User.objects.get(pk=user)
+                    if user[:2] == 'id':
+                        user = User.objects.get(pk=user[2:])
+                    elif user[:5] == 'email':
+                        user = user[5:]
                     logging.info("emitting notice to %s" % user)
                     # call this once per user to be atomic and allow for logging to
                     # accurately show how long each takes.
