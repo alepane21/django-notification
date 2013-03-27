@@ -311,7 +311,7 @@ def send_now(users, label, extra_context=None, on_site=True):
             'message': messages['full.html'],
         }, context)
 
-        if user is user_model:
+        if isinstance(user, user_model):
             notice = Notice.objects.create(user=user, message=messages['notice.html'],
                 notice_type=notice_type, on_site=on_site)
             if should_send(user, notice_type, "1") and user.email:
@@ -363,7 +363,7 @@ def queue(users, label, extra_context=None, on_site=True):
         users = [user.pk for user in users]
         users = []
         for user in users:
-            if user.__class__ == user_model:
+            if isinstance(user, user_model):
                 users.append('id' + user.pk)
             else:
                 users.append('email' + user)
